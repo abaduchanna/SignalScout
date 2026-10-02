@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wireless-retailer-lead-scout"
+version = "0.1.0"
+description = "Compliance-first discovery and enrichment of public wireless-retailer business contacts."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Abad Umair Channa" }]
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "mechanicalsoup>=1.4,<2",
+  "requests>=2.32,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.8,<1"]
+
+[project.scripts]
+lead-scout = "lead_scout.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["lead_scout*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
