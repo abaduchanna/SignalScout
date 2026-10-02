@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wireless-retailer-lead-scout"
-version = "0.2.0"
+version = "0.3.0"
 description = "Compliance-first discovery and enrichment of public wireless-retailer business contacts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,6 +16,7 @@ dependencies = [
   "requests>=2.32,<3",
   "websocket-client>=1.8,<2",
   "curl-cffi>=0.7,<2",
+  "openpyxl>=3.1,<4",
 ]
 
 [project.optional-dependencies]

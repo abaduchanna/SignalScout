@@ -16,14 +16,35 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Read version
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path lead_scout/gui.py -Pattern 'VERSION\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          echo "VERSION=$v" >> $env:GITHUB_ENV
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev]" pillow openpyxl nuitka zstandard
       - name: Test
         run: python -m pytest -q
-      - name: Build executable
-        run: python -m PyInstaller --clean --noconfirm --onefile --name SignalScout-CLI build_entry.py
+      - name: Build CLI executable (Nuitka, versioned metadata for AV trust)
+        shell: pwsh
+        run: |
+          python -m nuitka --standalone --onefile `
+            --output-file=SignalScout-CLI.exe `
+            --windows-console-mode=force `
+            --windows-icon-from-ico=assets/3sverse_icon.ico `
+            --windows-company-name=3SVerse `
+            --windows-product-name=SignalScout `
+            --windows-file-description="SignalScout CLI - Wireless Retail Lead Scout (www.3sverse.com)" `
+            --windows-product-version=$env:VERSION.0 `
+            --windows-file-version=$env:VERSION.0 `
+            --include-package=lead_scout `
+            --include-package=curl_cffi `
+            --include-package=openpyxl `
+            --assume-yes-for-downloads `
+            build_entry.py
+          if (!(Test-Path SignalScout-CLI.exe)) { throw "exe missing" }
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/SignalScout-CLI.exe
+          files: SignalScout-CLI.exe
           generate_release_notes: true

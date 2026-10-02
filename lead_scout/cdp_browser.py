@@ -10,9 +10,13 @@ user's clicks - the only honest way to automate "trusted" interaction
 Boundaries kept from the compliance-first design:
 - The user logs into any account THEMSELVES, in the automated window.
   The tool never reads, stores, or injects credentials or cookies.
-- No CAPTCHA solving, no challenge automation, no access-control bypass.
-  When an anti-bot challenge or login wall shows up, the controller
-  STOPS and reports the page for manual review.
+- No CAPTCHA solving and no challenge automation. When an anti-bot
+  challenge appears, the browser window STAYS OPEN and the HUMAN solves
+  it; the controller then polls for the challenge to clear and resumes
+  automatically (wait_for_challenge_resolution). JavaScript-only
+  managed challenges usually clear by themselves inside the real
+  browser - the controller simply waits for the page it is already
+  running. The tool never clicks, scripts, or bypasses the challenge.
 - Human-like pacing everywhere: randomized pauses between page loads,
   eased mouse paths with jitter, slow scrolls - and hard rate limits.
 
@@ -265,16 +269,64 @@ class TrustedBrowser:
             report.title = str(meta.get("value", ""))
             time.sleep(settle_seconds)
         if self.looks_like_challenge(session, report):
+            # Real browser + real engine: managed JS challenges usually
+            # clear on their own. Watch for that first - no interaction.
+            if self.wait_for_challenge_resolution(session, max_wait=75.0):
+                report.final_url = str(self.eval_js(
+                    session, "location.href").get("value", ""))
+                report.title = str(self.eval_js(
+                    session, "document.title").get("value", ""))
+                report.status = "ok"
+                report.note = "challenge self-cleared in the real browser"
+                return report
             report.status = "blocked_challenge"
             report.html = ""
-            report.note = "anti-bot challenge or login wall - STOPPED, no bypass attempted"
+            report.note = ("challenge not cleared - solve it in the open "
+                           "browser window; the tool never bypasses it")
         return report
 
-    @staticmethod
-    def looks_like_challenge(session: str, report: PageReport) -> bool:
+    def looks_like_challenge(self, session: str, report: PageReport) -> bool:
         haystack = f"{report.final_url} {report.title}".lower()
-        if any(marker in haystack for marker in ("authwall", "checkpoint", "/login")):
+        if any(marker in haystack for marker in CHALLENGE_MARKERS):
             return True
+        try:
+            marker_probe = self.eval_js(
+                session,
+                "(() => { const t = document.body ? "
+                "document.body.innerText.slice(0, 4000).toLowerCase() : '';"
+                " return ('just a moment' in t) || ('verify you are human' "
+                "in t) || ('checking your browser' in t); })()")
+            return bool(marker_probe.get("value"))
+        except CDPError:
+            return False
+
+    def wait_for_challenge_resolution(self, session: str,
+                                      max_wait: float = 150.0,
+                                      progress=None) -> bool:
+        """Wait for a HUMAN to clear the challenge in the open window.
+
+        The real browser engine runs the challenge's own JavaScript (a
+        managed challenge usually clears itself in a real browser, no
+        human touch needed). If interaction is required, the human does
+        it - this method only WATCHES and resumes when the page is
+        clean. Returns True when the challenge cleared in time."""
+        deadline = time.monotonic() + max_wait
+        notified = False
+        while time.monotonic() < deadline:
+            probe = self.eval_js(
+                session, "location.href + '||' + document.title")
+            value = str(probe.get("value", ""))
+            report = PageReport("", final_url=value.split("||")[0],
+                                title="||".join(value.split("||")[1:]))
+            if not self.looks_like_challenge(session, report):
+                self.human_pause(1.0, 2.0)
+                return True
+            if not notified and progress:
+                progress("Challenge shown - it often clears by itself; "
+                         "solve it in the browser window if asked. "
+                         "Waiting up to %.0fs…" % max_wait)
+                notified = True
+            time.sleep(2.5)
         return False
 
     # ------------------------------------------------------------------
