@@ -26,6 +26,22 @@ py -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
+## Windows executable
+
+Download `Wireless-Retailer-Lead-Scout.exe` from the latest GitHub Release. It is a
+command-line application, so run it from PowerShell or Command Prompt:
+
+```powershell
+.\Wireless-Retailer-Lead-Scout.exe --help
+```
+
+To reproduce the executable locally:
+
+```powershell
+python -m PyInstaller --clean --noconfirm --onefile `
+  --name Wireless-Retailer-Lead-Scout build_entry.py
+```
+
 ## Targeted discovery with Google Places API
 
 Enable Places API (New), set an API key, and run a narrow city/state query:
