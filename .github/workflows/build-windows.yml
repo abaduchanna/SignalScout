@@ -8,8 +8,9 @@ name: Build SignalScout (Windows exe)
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
-      ["lead_scout/**", "assets/**", "run_gui.py", ".github/workflows/build-windows.yml"]
+      ["lead_scout/**", "assets/**", "run_gui.py", ".github/workflows/build-windows.yml", "**"]
   workflow_dispatch:
 
 permissions:
