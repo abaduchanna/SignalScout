@@ -21,9 +21,9 @@ jobs:
       - name: Test
         run: python -m pytest -q
       - name: Build executable
-        run: python -m PyInstaller --clean --noconfirm --onefile --name Wireless-Retailer-Lead-Scout build_entry.py
+        run: python -m PyInstaller --clean --noconfirm --onefile --name SignalScout-CLI build_entry.py
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Wireless-Retailer-Lead-Scout.exe
+          files: dist/SignalScout-CLI.exe
           generate_release_notes: true

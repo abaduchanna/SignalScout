@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wireless-retailer-lead-scout"
-version = "0.1.0"
+version = "0.2.0"
 description = "Compliance-first discovery and enrichment of public wireless-retailer business contacts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,8 @@ dependencies = [
   "beautifulsoup4>=4.12,<5",
   "mechanicalsoup>=1.4,<2",
   "requests>=2.32,<3",
+  "websocket-client>=1.8,<2",
+  "curl-cffi>=0.7,<2",
 ]
 
 [project.optional-dependencies]
@@ -30,3 +32,10 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# GUI + CDP automation code is intentionally defensive: broad excepts and
+# try/except-pass around UI loops and browser calls keep the app alive
+# when a single action fails. UP031 keeps the %-format style used across
+# the 3SVerse tool suite.
+ignore = ["BLE001", "S110", "S112", "UP031", "PYI034", "SIM103", "SIM102", "RUF046", "ISC004", "E501"]
