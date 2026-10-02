@@ -5,10 +5,11 @@ import json
 import os
 
 from .crawler import PublicSiteCrawler
+from .markets import sweep_queries
 from .providers.dealer_locator import search_locator_mechanical
 from .providers.google_places import search_places
 from .providers.linkedin_org import lookup_organization
-from .storage import dedupe, read_seeds, write_csv
+from .storage import dedupe, read_seeds, write_csv, write_xlsx
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -24,6 +25,9 @@ def _parser() -> argparse.ArgumentParser:
     discover.add_argument("--review-out", default="output/manual-review.csv")
     discover.add_argument("--api-key", default=os.getenv("GOOGLE_PLACES_API_KEY", ""))
     discover.add_argument("--pages", type=int, default=1, choices=(1, 2, 3))
+    discover.add_argument("--sweep-usa", action="store_true",
+                          help="ALL-USA sweep: one query per state + DC "
+                               "(product = query text before ' in ')")
     discover.add_argument("--enrich-websites", action="store_true")
     discover.add_argument("--delay", type=float, default=2.0)
 
@@ -76,9 +80,15 @@ def _enrich(leads, delay: float, max_pages: int = 5):
 
 
 def _write_results(out: str, review_out: str, leads) -> None:
-    write_csv(out, leads)
+    if str(out).lower().endswith(".xlsx"):
+        write_xlsx(out, leads)
+    else:
+        write_csv(out, leads)
     review = [lead for lead in leads if lead.status != "ok"]
-    write_csv(review_out, review)
+    if str(review_out).lower().endswith(".xlsx"):
+        write_xlsx(review_out, review)
+    else:
+        write_csv(review_out, review)
     print(f"Saved {len(leads)} records to {out}")
     print(f"Saved {len(review)} manual-review records to {review_out}")
 
@@ -86,7 +96,16 @@ def _write_results(out: str, review_out: str, leads) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "discover":
-        leads = search_places(args.query, args.api_key, args.pages)
+        if args.sweep_usa:
+            product = args.query.split(" in ")[0].strip() or "Total Wireless retailer"
+            queries = sweep_queries(product)
+            leads = []
+            for index, one_query in enumerate(queries, start=1):
+                found = search_places(one_query, args.api_key, args.pages)
+                print(f"[{index}/{len(queries)}] {one_query} -> {len(found)}")
+                leads.extend(found)
+        else:
+            leads = search_places(args.query, args.api_key, args.pages)
         if args.enrich_websites:
             leads = _enrich(leads, args.delay)
         _write_results(args.out, args.review_out, dedupe(leads))

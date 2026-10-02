@@ -30,10 +30,12 @@ except Exception:
     _PILImageTk = None
 
 from .crawler import PublicSiteCrawler
+from .markets import sweep_queries
 from .providers.dealer_locator import search_locator_cdp, search_locator_mechanical
 from .providers.google_places import search_places
 from .providers.linkedin_cdp import find_company_urls, scrape_companies
-from .storage import dedupe, write_csv
+from .providers.search_engine_discovery import find_company_urls_via_search
+from .storage import dedupe, write_csv, write_xlsx
 
 # ── Brand tokens: the 3sverse.com dark-hero palette (index.css .dark) ──
 BG = "#07060b"
@@ -57,7 +59,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
@@ -488,8 +490,8 @@ class ScoutApp:
     def _build_discover_tab(self):
         f = self._tab("discover")
         top = self._panel(f, "Discover businesses",
-                          "Official Google Places API · narrow market-by-market "
-                          "queries such as: Total Wireless retailer in Houston TX")
+                          "Official Google Places API · single market or "
+                          "ALL-USA sweep (one narrow query per state + DC)")
         top.pack(fill="x")
         grid = tk.Frame(top, bg=PANEL)
         grid.pack(fill="x", padx=12, pady=(4, 12))
@@ -529,6 +531,21 @@ class ScoutApp:
                        activebackground=PANEL, activeforeground=TEXT,
                        selectcolor=FIELD, font=(FONT, 9), relief="flat",
                        bd=0, highlightthickness=0).pack(side="left")
+        srow = tk.Frame(grid, bg=PANEL)
+        srow.grid(row=3, column=0, columnspan=2, sticky="w", pady=3)
+        tk.Label(srow, text="Scope", bg=PANEL, fg=DIM,
+                 font=(FONT, 9)).pack(side="left")
+        self.dscope_var = tk.StringVar(value="single")
+        for value, label in (
+                ("single", "Single market (query above)"),
+                ("usa", "ALL-USA sweep - one query per state + DC "
+                        "(51 Places requests, billed)")):
+            tk.Radiobutton(srow, text=label, value=value,
+                           variable=self.dscope_var, bg=PANEL, fg=TEXT,
+                           activebackground=PANEL, activeforeground=TEXT,
+                           selectcolor=FIELD, font=(FONT, 9), relief="flat",
+                           bd=0, highlightthickness=0).pack(side="left",
+                                                            padx=(6, 14))
 
         brow = tk.Frame(top, bg=PANEL)
         brow.pack(fill="x", padx=12, pady=(0, 10))
@@ -557,35 +574,54 @@ class ScoutApp:
                                 "Enter a market query such as: "
                                 "Total Wireless retailer in Houston TX")
             return
+        sweep = self.dscope_var.get() == "usa"
         self._busy = True
         self._busy_start(self.discover_btn, self.discover_status,
                          "Discovering…")
-        self.log(self.discover_log, "Discovery started: " + query)
         pages = self.dpages_var.get() or 1
         enrich = bool(self.denrich_var.get())
+        if sweep:
+            product = query.split(" in ")[0].strip() or "Total Wireless retailer"
+            queries = sweep_queries(product)
+            self.log(self.discover_log,
+                     f"ALL-USA sweep: {len(queries)} state queries "
+                     f"('{product} in <state>')")
+        else:
+            queries = [query]
+            self.log(self.discover_log, "Discovery started: " + query)
 
         def work():
             try:
-                leads = search_places(query, key, pages)
-                self._q.put((self._log_line,
-                             (self.discover_log,
-                              f"Places returned {len(leads)} businesses")))
-                if enrich:
-                    crawler = PublicSiteCrawler(delay_seconds=2.5)
-                    for index, lead in enumerate(leads, start=1):
-                        if lead.website:
-                            self._q.put((self._log_line,
-                                         (self.discover_log,
-                                          f"[{index}/{len(leads)}] enriching "
-                                          + lead.website)))
-                            crawler.enrich(lead.website, lead)
-                self._q.put((self._discover_done, leads))
+                collected = []
+                crawler = PublicSiteCrawler(delay_seconds=2.5)
+                for q_index, one_query in enumerate(queries, start=1):
+                    found = search_places(one_query, key, pages)
+                    collected.extend(found)
+                    self._q.put((self._log_line,
+                                 (self.discover_log,
+                                  f"[{q_index}/{len(queries)}] {one_query} -> "
+                                  f"{len(found)} businesses")))
+                    if enrich:
+                        for lead in found:
+                            if lead.website:
+                                crawler.enrich(lead.website, lead)
+                    self._q.put((self._sweep_progress,
+                                 (q_index, len(queries), len(collected))))
+                    if q_index < len(queries):
+                        time.sleep(1.5)     # polite pause between markets
+                self._q.put((self._discover_done, collected))
             except Exception as exc:
                 self._q.put((self._job_error,
                              (self.discover_log, self.discover_btn,
                               self.discover_status, exc)))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _sweep_progress(self, payload):
+        done, total, collected = payload
+        self.discover_status.config(
+            text=f"Sweep {done}/{total} markets · {collected} businesses",
+            fg=WARN)
 
     def _log_line(self, payload):
         widget, message = payload
@@ -821,8 +857,9 @@ class ScoutApp:
         self.li_status.pack(side="left", padx=12)
 
         mid = self._panel(f, "Find companies",
-                          "Keyword search in LinkedIn company results "
-                          "(public pages only)")
+                          "Nationwide by default (LinkedIn search has no "
+                          "geo limit) · two routes: your logged-in LinkedIn "
+                          "search, or public search engines without login")
         mid.pack(fill="x", pady=(10, 0))
         mgrid = tk.Frame(mid, bg=PANEL)
         mgrid.pack(fill="x", padx=12, pady=(4, 10))
@@ -830,7 +867,7 @@ class ScoutApp:
         tk.Label(mgrid, text="Keywords", bg=PANEL, fg=DIM,
                  font=(FONT, 9)).grid(row=0, column=0, sticky="w", pady=2)
         self.li_kw_var = tk.StringVar(
-            value="Total Wireless dealer Houston")
+            value="Total Wireless dealer")
         tk.Entry(mgrid, textvariable=self.li_kw_var, bg=FIELD, fg=TEXT,
                  relief="flat", insertbackground=TEXT, font=(FONT, 10),
                  highlightbackground=BORDER, highlightthickness=1
@@ -846,9 +883,13 @@ class ScoutApp:
                    ).grid(row=1, column=1, sticky="w", pady=2)
         krow = tk.Frame(mid, bg=PANEL)
         krow.pack(fill="x", padx=12, pady=(0, 10))
-        self.li_find_btn = make_btn(krow, "Find Companies", self.run_find,
-                                    kind="primary")
+        self.li_find_btn = make_btn(krow, "Find via LinkedIn Search",
+                                    self.run_find, kind="primary")
         self.li_find_btn.pack(side="left")
+        self.li_web_btn = make_btn(krow, "Find via Search Engine "
+                                           "(no login)",
+                                   self.run_web_find, kind="ghost")
+        self.li_web_btn.pack(side="left", padx=(10, 0))
         self.li_find_status = tk.Label(krow, text="", bg=PANEL, fg=DIM,
                                        font=(FONT, 8))
         self.li_find_status.pack(side="left", padx=12)
@@ -936,6 +977,50 @@ class ScoutApp:
 
         threading.Thread(target=work, daemon=True).start()
 
+    def run_web_find(self):
+        """LinkedIn Org-API alternative: public search engines
+        (DuckDuckGo HTML / Bing) for site:linkedin.com/company pages -
+        no LinkedIn session involved at all."""
+        if self._busy:
+            messagebox.showinfo("Busy", "Another job is already running.")
+            return
+        keywords = self.li_kw_var.get().strip()
+        if not keywords:
+            messagebox.showinfo("Missing keywords",
+                                "Enter search keywords such as: "
+                                "Total Wireless dealer")
+            return
+        self._busy = True
+        self._busy_start(self.li_web_btn, self.li_find_status,
+                         "Searching the open web…")
+        self.log(self.li_log, "Search-engine discovery: "
+                 f"site:linkedin.com/company {keywords}")
+
+        def work():
+            try:
+                urls, status = find_company_urls_via_search(
+                    keywords, limit=int(self.li_max_var.get() or 15))
+                self._q.put((self._web_find_done, (urls, status, keywords)))
+            except Exception as exc:
+                self._q.put((self._job_error,
+                             (self.li_log, self.li_web_btn,
+                              self.li_find_status, exc)))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _web_find_done(self, payload):
+        urls, status, _keywords = payload
+        self._busy = False
+        good = status.startswith("ok")
+        self._busy_end(self.li_web_btn, self.li_find_status,
+                       f"{len(urls)} companies ({status})", good=good)
+        self.log(self.li_log, f"Search engines returned {len(urls)} "
+                 f"company pages [{status}]",
+                 color=(OK if good else ERR))
+        if urls:
+            self.li_urls.delete("1.0", "end")
+            self.li_urls.insert("1.0", "\n".join(urls))
+
     def _find_done(self, payload):
         urls, keywords = payload
         self._busy = False
@@ -963,11 +1048,12 @@ class ScoutApp:
         self._busy_start(self.li_scrape_btn, self.li_scrape_status,
                          "Reading pages…")
 
-        def progress(index, total, lead):
-            self._q.put((self._log_line,
-                         (self.li_log,
-                          f"[{index}/{total}] {lead.business_name or '—'} "
-                          f"({lead.status})")))
+        def progress(index, total, message):
+            if total:
+                self._q.put((self._log_line,
+                             (self.li_log, f"[{index}/{total}] {message}")))
+            else:
+                self._q.put((self._log_line, (self.li_log, message)))
 
         def work():
             try:
@@ -1012,9 +1098,11 @@ class ScoutApp:
         self.res_detail.pack(fill="x", padx=12, pady=(0, 8))
         brow = tk.Frame(top, bg=PANEL)
         brow.pack(fill="x", padx=12, pady=(0, 10))
-        make_btn(brow, "Export Leads CSV", self.export_leads,
+        make_btn(brow, "Export Leads Excel (.xlsx)", self.export_leads_xlsx,
                  kind="primary").pack(side="left")
-        make_btn(brow, "Export Manual-Review CSV", self.export_review,
+        make_btn(brow, "Export Leads CSV", self.export_leads,
+                 kind="ghost").pack(side="left", padx=(10, 0))
+        make_btn(brow, "Export Review Excel", self.export_review_xlsx,
                  kind="warn").pack(side="left", padx=(10, 0))
         make_btn(brow, "Clear All", self.clear_leads,
                  kind="danger").pack(side="right")
@@ -1052,6 +1140,34 @@ class ScoutApp:
         if not path:
             return
         write_csv(path, self._leads)
+        self.res_detail.config(text=f"Saved {path}")
+
+    def export_leads_xlsx(self):
+        if not self._leads:
+            messagebox.showinfo("Nothing to export", "No leads collected yet.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx", initialfile="signal-scout-leads.xlsx",
+            filetypes=[("Excel workbooks", "*.xlsx")])
+        if not path:
+            return
+        write_xlsx(path, self._leads)
+        self.res_detail.config(
+            text=f"Saved {path} - sheet Leads ({len(self._leads)} rows) "
+                 f"+ sheet Manual Review")
+
+    def export_review_xlsx(self):
+        review = [lead for lead in self._leads if lead.status != "ok"]
+        if not review:
+            messagebox.showinfo("Nothing to export",
+                                "No manual-review records right now.")
+            return
+        path = filedialog.asksaveasfilename(
+            defaultextension=".xlsx", initialfile="manual-review.xlsx",
+            filetypes=[("Excel workbooks", "*.xlsx")])
+        if not path:
+            return
+        write_xlsx(path, review)
         self.res_detail.config(text=f"Saved {path}")
 
     def export_review(self):

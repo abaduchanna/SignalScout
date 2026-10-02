@@ -55,14 +55,23 @@ def find_company_urls(browser: TrustedBrowser, session: str,
 
 
 def scrape_company(browser: TrustedBrowser, session: str,
-                   company_url: str) -> Lead:
-    """Read one public LinkedIn company page into a Lead record."""
+                   company_url: str, progress=None) -> Lead:
+    """Read one public LinkedIn company page into a Lead record.
+
+    If a challenge appears, the browser window stays open and the human
+    solves it; the tool watches and resumes (never bypasses)."""
     lead = Lead(source_type="linkedin_public", source_urls=[company_url],
                 linkedin_company_url=company_url)
     report = browser.navigate(session, company_url)
     if report.status == "blocked_challenge":
-        lead.status = "blocked_challenge_manual_login"
-        return lead
+        if progress:
+            progress(0, 1, "challenge shown - solve it in the browser "
+                           "window; waiting…")
+        if browser.wait_for_challenge_resolution(session, max_wait=180.0):
+            report = browser.navigate(session, company_url)
+        if report.status == "blocked_challenge":
+            lead.status = "blocked_challenge_manual_login"
+            return lead
     if report.status != "ok":
         lead.status = report.status
         return lead
@@ -102,7 +111,28 @@ def scrape_company(browser: TrustedBrowser, session: str,
     lead.business_name = lead.business_name or probe.get("name", "")
     lead.website = lead.website or probe.get("website", "")
     lead.address = lead.address or probe.get("hq", "")
-    about_text = " ".join(str(probe.get("about", "")).split())
+
+    # The /about/ subpage carries the full public About block (HQ
+    # address, website, founder line) when the overview page trims it.
+    about_page_text = ""
+    about_url = company_url.rstrip("/") + "/about/"
+    about_report = browser.navigate(session, about_url)
+    if about_report.status == "ok":
+        about_html = browser.html(session)
+        about_struct = extract_lead(about_html, about_url)
+        lead.business_name = lead.business_name or about_struct.business_name
+        lead.website = lead.website or about_struct.website
+        lead.address = lead.address or about_struct.address
+        lead.phone = lead.phone or about_struct.phone
+        if about_struct.owner_name and not lead.owner_name:
+            lead.owner_name = about_struct.owner_name
+            lead.evidence.extend(about_struct.evidence)
+        from bs4 import BeautifulSoup
+        about_page_text = " ".join(
+            BeautifulSoup(about_html, "html.parser").get_text(
+                " ", strip=True).split())[:20_000]
+
+    about_text = " ".join(str(probe.get("about", "")).split()) + " " + about_page_text
     owner_match = OWNER_RE.search(about_text)
     if owner_match:
         lead.owner_name = owner_match.group(1).strip()
@@ -117,12 +147,18 @@ def scrape_company(browser: TrustedBrowser, session: str,
 def scrape_companies(browser: TrustedBrowser, session: str,
                      company_urls: list[str], progress=None) -> list[Lead]:
     """Read many company pages with hard rate limits between each."""
+
+    def notify(message: str) -> None:
+        if progress:
+            progress(0, 0, message)
+
     leads: list[Lead] = []
     total = max(1, len(company_urls))
     for index, url in enumerate(company_urls, start=1):
-        lead = scrape_company(browser, session, url)
+        lead = scrape_company(browser, session, url, progress=notify)
         leads.append(lead)
         if progress:
-            progress(index, total, lead)
+            label = lead.business_name or "(no name)"
+            progress(index, total, f"{label} [{lead.status}]")
         time.sleep(random.uniform(6.0, 12.0))   # hard, human-like pacing
     return leads

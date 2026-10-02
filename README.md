@@ -23,10 +23,10 @@ header, and the standard brand footer.
 
 | Tab | What it does |
 |---|---|
-| **Discover** | Official Google Places (New) Text Search — market-by-market queries, optional website enrichment |
+| **Discover** | Official Google Places (New) Text Search — single market OR **ALL-USA sweep** (one narrow query per state + DC), optional website enrichment |
 | **Web Scraper** | MechanicalSoup + BeautifulSoup crawling of public business sites; optional browser-fingerprint mode |
-| **LinkedIn** | Public company-page reader driven by **CDP trusted input** in your own logged-in browser |
-| **Results** | Collected leads, evidence inspector, Leads CSV + manual-review CSV export |
+| **LinkedIn** | Public company-page reader driven by **CDP trusted input** in your own logged-in browser; find companies via LinkedIn search **or public search engines without login** |
+| **Results** | Collected leads, evidence inspector, **Excel (.xlsx)** + CSV export, manual-review export |
 | **Settings** | User-Agent, delays, browser profile, Places API key |
 
 ## Scraping stack (what each layer is for)
@@ -52,8 +52,20 @@ header, and the standard brand footer.
    receive `isTrusted=true` input exactly like a human's. Eased mouse
    paths with jitter, press-duration variance, slow reading scrolls,
    and hard 6–12 s page-load pacing. **You log in yourself; the tool
-   never touches credentials or cookies, never solves challenges, and
-   stops dead on authwall / checkpoint pages.**
+   never touches credentials or cookies.**
+
+### How challenges are handled (the honest way)
+
+The automation runs inside a REAL browser with its real engine, so
+Cloudflare's JavaScript-only managed challenges usually clear by
+themselves while the page simply loads - the controller waits for
+that. When a challenge or CAPTCHA genuinely requires interaction, the
+browser window **stays open and YOU solve it**; the controller watches
+and **resumes automatically** when the page is clean (up to 3 minutes).
+The tool never clicks, scripts, or bypasses a challenge, never touches
+CAPTCHAs, and pages that stay blocked go to manual review. This is the
+only mode that keeps the operator human-in-the-loop instead of
+pretending to be one.
 
 ## Boundaries (unchanged, non-negotiable)
 
@@ -75,6 +87,15 @@ py -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 ```
+
+## If antivirus quarantines the exe
+
+Some antivirus products false-flag unsigned one-file builds. The
+release exes carry full 3SVerse version metadata and an icon, which
+resolves most flags; add the file to your AV allow-list if needed. To
+run from source instead (nothing to flag), use the bundled
+**`run_gui.bat`** - it creates a local venv, installs dependencies,
+and starts the GUI.
 
 ## Windows executables
 
@@ -145,15 +166,50 @@ LinkedIn tab.
 
 ## LinkedIn company pages (CDP trusted input)
 
+The **alternative to the Organization Lookup API** (which needs an
+approved LinkedIn app token) is built in, with two discovery routes:
+
+1. **Find via Search Engine (no login)** — public DuckDuckGo/Bing
+   results for `site:linkedin.com/company <keywords>`; returns company
+   URLs without any LinkedIn session. This replaces the Org API for
+   company-URL discovery.
+2. **Find via LinkedIn Search** — keyword search inside your own
+   logged-in browser (nationwide by default; LinkedIn search has no
+   geo limit).
+
+Then **Read Companies**: each public company page (+ its /about/ page)
+is read for business name, website, headquarters address, published
+phone, industry, and any founder/owner line in the public About text.
+Records land in **Results** with source URLs and evidence.
+
 1. GUI → **LinkedIn** → **Start Browser** (a real Chrome/Edge window
    opens with its own profile).
-2. Log into LinkedIn **yourself** in that window.
-3. Enter keywords (e.g. `Total Wireless dealer Houston`) → **Find
-   Companies** → **Read Companies**.
-4. Records land in **Results** with source URLs and evidence.
+2. Log into LinkedIn **yourself** in that window (only needed for
+   route 2 and for reading pages).
+3. Keywords → find → **Read Companies**.
 
 CLI equivalent: none — deliberately. The GUI keeps the human in the
 loop for anything session-based.
+
+## All-USA targeting
+
+Google Places Text Search is geo-narrow, so nationwide coverage is a
+**sweep**: one narrow query per state + DC (51 requests, billed by
+Google, ~1.5 s apart). In the GUI: Discover → Scope → **ALL-USA**. On
+the CLI:
+
+```powershell
+lead-scout discover --sweep-usa --query "Total Wireless retailer" --enrich-websites --out .\output\usa.xlsx
+```
+
+LinkedIn keyword search is nationwide by default — no sweep needed.
+
+## Excel export
+
+**Results → Export Leads Excel (.xlsx)** writes a branded workbook with
+two sheets: **Leads** (every record) and **Manual Review** (blocked /
+challenged / incomplete). The CLI writes `.xlsx` whenever the output
+filename ends in `.xlsx`.
 
 ## Manual review queue
 
