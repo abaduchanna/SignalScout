@@ -99,6 +99,10 @@ def extract_lead(html: str, url: str) -> Lead:
         title = soup.title.string if soup.title and soup.title.string else ""
         lead.business_name = _clean(heading.get_text(" ") if heading else title.split("|")[0])
 
+    if not lead.business_name:
+        og_site = soup.find("meta", attrs={"property": "og:site_name"})
+        lead.business_name = _clean(og_site.get("content") if og_site else "")
+
     text = soup.get_text(" ", strip=True)
     if not lead.owner_name:
         match = OWNER_RE.search(text)

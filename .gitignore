@@ -10,3 +10,5 @@ build/
 output/
 *.csv
 !examples/seeds.csv
+# SignalScout browser profile (LinkedIn session lives here - NEVER commit)
+.browser-profile/

@@ -1,0 +1,78 @@
+name: Build SignalScout (Windows exe)
+
+# Studio-branded GUI build. The exe bundles the brand art (ring, orb,
+# header logo, icon) and the English-only UI. No secrets are embedded -
+# the tool carries no credentials by design.
+# Developed by www.3SVerse.com (c) 2026
+
+on:
+  push:
+    branches: [main]
+    paths:
+      ["lead_scout/**", "assets/**", "run_gui.py", ".github/workflows/build-windows.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path lead_scout/gui.py -Pattern 'VERSION\s*=\s*"([^"]+)"').Matches[0].Groups[1].Value
+          echo "VERSION=$v" >> $env:GITHUB_ENV
+          echo "building SignalScout $v"
+
+      - name: Install build deps
+        run: python -m pip install nuitka pillow mechanicalsoup beautifulsoup4 requests websocket-client curl-cffi zstandard
+
+      - name: Build ONEFILE exe (Nuitka)
+        shell: pwsh
+        run: |
+          python -m nuitka --standalone --onefile `
+            --output-file=SignalScout.exe `
+            --windows-console-mode=disable `
+            --windows-icon-from-ico=assets/3sverse_icon.ico `
+            --include-data-files=assets/bg_ring.png=bg_ring.png `
+            --include-data-files=assets/bg_orb.png=bg_orb.png `
+            --include-data-files=assets/3sverse_logo_header.png=3sverse_logo_header.png `
+            --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
+            --include-package=lead_scout `
+            --include-package=curl_cffi `
+            --assume-yes-for-downloads `
+            run_gui.py
+          if (!(Test-Path SignalScout.exe)) { throw "exe missing" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SignalScout-windows-x64
+          path: SignalScout.exe
+
+  release:
+    needs: windows-exe
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SignalScout-windows-x64
+          path: dist
+      - name: Attach exe to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/SignalScout.exe
