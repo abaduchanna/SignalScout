@@ -44,6 +44,8 @@ jobs:
           python -m nuitka --standalone --onefile `
             --output-file=SignalScout.exe `
             --windows-console-mode=disable `
+            --force-stdout-spec="%TEMP%\SignalScout-stdout.log" `
+            --force-stderr-spec="%TEMP%\SignalScout-stderr.log" `
             --windows-icon-from-ico=assets/3sverse_icon.ico `
             --windows-company-name=3SVerse `
             --windows-product-name=SignalScout `

@@ -29,12 +29,23 @@ except Exception:
     _PILImage = None
     _PILImageTk = None
 
-from .crawler import PublicSiteCrawler
+# v0.3.1: heavy scraping imports are ISOLATED. The frozen exe runs with
+# the console disabled, so if any optional dependency failed to load, the
+# old module-level import killed the process BEFORE the window even
+# opened - a completely silent death (owner: "app exe nahi chal rahi").
+# Now the GUI always opens; a missing dependency is reported with the
+# exact error the moment a job starts.
+_IMPORT_ERR = None
+try:
+    from .crawler import PublicSiteCrawler
+    from .providers.dealer_locator import search_locator_cdp, search_locator_mechanical
+    from .providers.google_places import search_places
+    from .providers.linkedin_cdp import find_company_urls, scrape_companies
+    from .providers.search_engine_discovery import find_company_urls_via_search
+except Exception:                                   # frozen-exe safety net
+    import traceback as _traceback
+    _IMPORT_ERR = _traceback.format_exc()
 from .markets import sweep_queries
-from .providers.dealer_locator import search_locator_cdp, search_locator_mechanical
-from .providers.google_places import search_places
-from .providers.linkedin_cdp import find_company_urls, scrape_companies
-from .providers.search_engine_discovery import find_company_urls_via_search
 from .storage import dedupe, write_csv, write_xlsx
 
 # ── Brand tokens: the 3sverse.com dark-hero palette (index.css .dark) ──
@@ -59,7 +70,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
@@ -564,6 +575,13 @@ class ScoutApp:
         self.discover_log.pack(fill="both", expand=True, padx=12, pady=(2, 12))
 
     def run_discover(self):
+        if _IMPORT_ERR:
+            messagebox.showerror(
+                "Missing components",
+                "Scraping components failed to load:\n\n"
+                + _IMPORT_ERR[-900:]
+                + "\n\nDetails saved to %LOCALAPPDATA%\\SignalScout\\crash.log")
+            return
         if self._busy:
             messagebox.showinfo("Busy", "Another job is already running.")
             return
@@ -742,6 +760,13 @@ class ScoutApp:
                               pady=(2, 12))
 
     def run_scraper(self):
+        if _IMPORT_ERR:
+            messagebox.showerror(
+                "Missing components",
+                "Scraping components failed to load:\n\n"
+                + _IMPORT_ERR[-900:]
+                + "\n\nDetails saved to %LOCALAPPDATA%\\SignalScout\\crash.log")
+            return
         if self._busy:
             messagebox.showinfo("Busy", "Another job is already running.")
             return
@@ -782,6 +807,13 @@ class ScoutApp:
         threading.Thread(target=work, daemon=True).start()
 
     def run_locator(self):
+        if _IMPORT_ERR:
+            messagebox.showerror(
+                "Missing components",
+                "Scraping components failed to load:\n\n"
+                + _IMPORT_ERR[-900:]
+                + "\n\nDetails saved to %LOCALAPPDATA%\\SignalScout\\crash.log")
+            return
         if self._busy:
             messagebox.showinfo("Busy", "Another job is already running.")
             return
@@ -981,6 +1013,13 @@ class ScoutApp:
         """LinkedIn Org-API alternative: public search engines
         (DuckDuckGo HTML / Bing) for site:linkedin.com/company pages -
         no LinkedIn session involved at all."""
+        if _IMPORT_ERR:
+            messagebox.showerror(
+                "Missing components",
+                "Scraping components failed to load:\n\n"
+                + _IMPORT_ERR[-900:]
+                + "\n\nDetails saved to %LOCALAPPDATA%\\SignalScout\\crash.log")
+            return
         if self._busy:
             messagebox.showinfo("Busy", "Another job is already running.")
             return
