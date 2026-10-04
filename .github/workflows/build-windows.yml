@@ -43,6 +43,7 @@ jobs:
         run: |
           python -m nuitka --standalone --onefile `
             --output-file=SignalScout.exe `
+            --enable-plugin=tk-inter `
             --windows-console-mode=disable `
             --force-stdout-spec="%TEMP%\SignalScout-stdout.log" `
             --force-stderr-spec="%TEMP%\SignalScout-stderr.log" `
