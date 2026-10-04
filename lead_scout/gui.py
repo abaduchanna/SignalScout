@@ -47,6 +47,7 @@ except Exception:                                   # frozen-exe safety net
     _IMPORT_ERR = _traceback.format_exc()
 from .markets import sweep_queries
 from .storage import dedupe, write_csv, write_xlsx
+from native_chrome import install_dark_titlebar
 
 # ── Brand tokens: the 3sverse.com dark-hero palette (index.css .dark) ──
 BG = "#07060b"
@@ -70,7 +71,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
@@ -200,6 +201,7 @@ class ScoutApp:
                 root.iconbitmap(default=ico)
         except Exception:
             pass
+        install_dark_titlebar(root)
 
         # Brand background - identical composition + speeds as Studio.
         self._bg_canvas = tk.Canvas(root, bg=BG, highlightthickness=0,
@@ -215,6 +217,8 @@ class ScoutApp:
         self._ORB_PERIOD = 13.0          # site floatDur
         self._ORB_SPIN_TICKS = 146       # 146 x 40ms x 24 = 140s / rotation
         self._ORB_MAX = 460
+        self._RING_FLOAT_AMP = 16        # WiFi Transfer bgfloatR
+        self._RING_FLOAT_PERIOD = 12.0
         self._ring_frames = []
         self._orb_frames = []
         self._ring_item = None
@@ -223,6 +227,9 @@ class ScoutApp:
         self._orb_frame = 0
         self._orb_tick_n = 0
         self._orb_phase = 0.0
+        self._ring_phase = 0.0
+        self._ring_x = 0.0
+        self._ring_base_y = 0.0
         self._orb_x = 0.0
         self._orb_base_y = 0.0
         self._load_bg_assets()
@@ -299,13 +306,17 @@ class ScoutApp:
                (self._bg_imgs[1] if len(self._bg_imgs) > 1 else None))
         frames = self._ring_frames
         if frames:
+            self._ring_x = w + frames[0].width() * 0.16
+            self._ring_base_y = h * 0.44
             self._ring_item = c.create_image(
-                w + frames[0].width() * 0.16, h * 0.44,
+                self._ring_x, self._ring_base_y,
                 image=frames[self._ring_frame], anchor="center")
         elif self._bg_imgs:
             ring = self._bg_imgs[0]
+            self._ring_x = w + ring.width() * 0.16
+            self._ring_base_y = h * 0.44
             self._ring_item = c.create_image(
-                w + ring.width() * 0.16, h * 0.44,
+                self._ring_x, self._ring_base_y,
                 image=ring, anchor="center")
         else:
             self._ring_item = None
@@ -345,6 +356,14 @@ class ScoutApp:
                     dy = math.sin(self._orb_phase) * self._ORB_AMP
                     self._bg_canvas.coords(
                         self._orb_item, self._orb_x, self._orb_base_y + dy)
+                    ring_step = 2 * math.pi * (self._ORB_TICK_MS / 1000.0) \
+                        / self._RING_FLOAT_PERIOD
+                    self._ring_phase = (self._ring_phase + ring_step) % (2 * math.pi)
+                    if self._ring_item is not None:
+                        ring_dy = math.sin(self._ring_phase) * self._RING_FLOAT_AMP
+                        self._bg_canvas.coords(
+                            self._ring_item, self._ring_x,
+                            self._ring_base_y + ring_dy)
                     self._orb_tick_n += 1
                     if (self._orb_frames and self._orb_tick_n
                             >= self._ORB_SPIN_TICKS):

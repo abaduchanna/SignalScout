@@ -57,6 +57,7 @@ jobs:
             --include-data-files=assets/3sverse_logo_header.png=3sverse_logo_header.png `
             --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
             --include-package=lead_scout `
+            --include-module=native_chrome `
             --include-package=curl_cffi `
             --include-package=openpyxl `
             --assume-yes-for-downloads `
