@@ -45,9 +45,10 @@ try:
 except Exception:                                   # frozen-exe safety net
     import traceback as _traceback
     _IMPORT_ERR = _traceback.format_exc()
+from native_chrome import install_dark_titlebar
+
 from .markets import sweep_queries
 from .storage import dedupe, write_csv, write_xlsx
-from native_chrome import install_dark_titlebar
 
 # ── Brand tokens: the 3sverse.com dark-hero palette (index.css .dark) ──
 BG = "#07060b"
