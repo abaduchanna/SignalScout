@@ -270,6 +270,8 @@ class ScoutApp:
         if _PILImage is not None and self._bg_imgs:
             try:
                 src = _PILImage.open(asset_path("bg_ring.png")).convert("RGBA")
+                src.putalpha(src.getchannel("A").point(
+                    lambda value: min(255, int(value * 1.55))))
                 if max(src.size) > self._RING_MAX:
                     sc = self._RING_MAX / float(max(src.size))
                     src = src.resize((max(1, int(src.width * sc)),
@@ -285,6 +287,8 @@ class ScoutApp:
         if _PILImage is not None and len(self._bg_imgs) > 1:
             try:
                 src = _PILImage.open(asset_path("bg_orb.png")).convert("RGBA")
+                src.putalpha(src.getchannel("A").point(
+                    lambda value: min(255, int(value * 1.55))))
                 if max(src.size) > self._ORB_MAX:
                     sc = self._ORB_MAX / float(max(src.size))
                     src = src.resize((max(1, int(src.width * sc)),
@@ -307,14 +311,14 @@ class ScoutApp:
                (self._bg_imgs[1] if len(self._bg_imgs) > 1 else None))
         frames = self._ring_frames
         if frames:
-            self._ring_x = w + frames[0].width() * 0.16
+            self._ring_x = w + frames[0].width() * 0.05
             self._ring_base_y = h * 0.44
             self._ring_item = c.create_image(
                 self._ring_x, self._ring_base_y,
                 image=frames[self._ring_frame], anchor="center")
         elif self._bg_imgs:
             ring = self._bg_imgs[0]
-            self._ring_x = w + ring.width() * 0.16
+            self._ring_x = w + ring.width() * 0.05
             self._ring_base_y = h * 0.44
             self._ring_item = c.create_image(
                 self._ring_x, self._ring_base_y,
@@ -327,8 +331,8 @@ class ScoutApp:
                 c.create_oval(w - r, cy - r, w + r, cy + r,
                               outline=BORDER, width=1)
         if orb is not None:
-            self._orb_x = -orb.width() * 0.22
-            self._orb_base_y = h - orb.height() * 0.42
+            self._orb_x = -orb.width() * 0.10
+            self._orb_base_y = h - orb.height() * 0.32
             self._orb_item = c.create_image(
                 self._orb_x, self._orb_base_y, image=orb, anchor="center")
         else:
