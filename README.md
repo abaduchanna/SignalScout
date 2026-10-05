@@ -82,45 +82,61 @@ pretending to be one.
 
 ## Install
 
+**Windows (recommended):** download `SignalScout-Setup.exe` from the
+[latest release](https://github.com/abaduchanna/SignalScout/releases/latest)
+and run it - no Python needed.
+
+**From source:**
+
 ```powershell
 py -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
 ```
 
-## If antivirus quarantines the exe
+## If antivirus flags SignalScout
 
-Some antivirus products false-flag unsigned one-file builds. The
-release exes carry full 3SVerse version metadata and an icon, which
-resolves most flags; add the file to your AV allow-list if needed. To
-run from source instead (nothing to flag), use the bundled
+Endpoint security products (SentinelOne, Defender, ...) used to
+false-flag the old one-file builds: a `--onefile` exe extracts its
+compiled program DLL (`run_gui.dll`) into `%TEMP%\onefile_*\` on
+every launch, and a freshly dropped unsigned DLL in Temp looks
+malicious to heuristic engines. **Since v0.3.5 there is no one-file
+build at all** - the release is a single NSIS setup that installs the
+standalone build once into `%LOCALAPPDATA%\Programs\SignalScout`.
+No self-extract step, no Temp payload, nothing to quarantine.
+
+If your endpoint security still asks about the installer: it is
+unsigned (no paid code-signing certificate), carries full 3SVerse
+version metadata, and its complete source is in this repository.
+Allow it once (or ask your IT admin to) and the alert will not
+return. To run from source instead (nothing to flag), use the bundled
 **`run_gui.bat`** - it creates a local venv, installs dependencies,
 and starts the GUI.
 
-## Windows executables
+## Windows installer
 
-Every `v*` tag ships two builds on the GitHub Release page:
+Every `v*` tag ships **one file** on the GitHub Release page:
 
 | File | What it is |
 |---|---|
-| `SignalScout.exe` | Studio-style desktop **GUI** (Nuitka ONEFILE; brand icon, spiral and orb art bundled) |
-| `SignalScout-CLI.exe` | Command-line only build (PyInstaller ONEFILE) |
+| `SignalScout-Setup.exe` | NSIS setup for the Studio-style desktop **GUI** (Nuitka standalone; brand icon, spiral and orb art bundled; per-user install, Start Menu + Desktop shortcuts, uninstaller) |
 
-The CLI build runs the same commands from PowerShell or Command Prompt:
+Run the setup once; launch SignalScout from the Start Menu or the
+desktop shortcut. Uninstall from Windows "Apps & features" or via
+`Uninstall SignalScout.exe` in the install folder.
 
-```powershell
-.\SignalScout-CLI.exe --help
-```
-
-To reproduce the CLI executable locally:
+To reproduce the installer locally:
 
 ```powershell
-python -m PyInstaller --clean --noconfirm --onefile `
-  --name SignalScout-CLI build_entry.py
+python -m nuitka --standalone --output-dir=onedir_build `
+  --output-filename=SignalScout.exe --enable-plugin=tk-inter `
+  --windows-console-mode=disable run_gui.py
+# then
+makensis packaging\signal_scout.nsi
 ```
 
-The GUI build is produced by `.github/workflows/build-windows.yml`
-(Nuitka ONEFILE, brand icon and background art bundled).
+The build is produced by `.github/workflows/build-windows.yml`
+(Nuitka standalone + NSIS, brand icon and background art bundled).
 
 ## Targeted discovery with Google Places API
 

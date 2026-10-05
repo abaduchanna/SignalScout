@@ -1,16 +1,24 @@
-Windows showed a virus/threat warning for SignalScout?
-=======================================================
+Windows showed a security alert about SignalScout?
+==================================================
 
-This is a FALSE POSITIVE — SignalScout contains no malware.
+This is a FALSE POSITIVE - SignalScout contains no malware.
 
-Why antivirus flags it
+What changed in v0.3.5
 ----------------------
-SignalScout is a brand-new desktop app distributed without a paid
-code-signing certificate. Antivirus engines judge unknown, unsigned
-executables by heuristics, and single-file builds that self-extract at
-launch look suspicious to them. The result: a false "threat detected"
-warning on a clean file. This is common for all new independent
-software, and it fades as antivirus vendors whitelist the file after
+SignalScout is now installed with a normal Windows setup
+(SignalScout-Setup.exe) into %LOCALAPPDATA%\Programs\SignalScout.
+Old releases were single-file exes that unpacked a compiled DLL
+(run_gui.dll) into your Temp folder at every launch - endpoint
+security products such as SentinelOne reliably quarantine freshly
+dropped unsigned DLLs in Temp, which looked exactly like malware
+behavior. The installed app does none of that: files stay in the
+install folder, nothing self-extracts, nothing runs from Temp.
+
+Why security tools still may ask about the SETUP file
+-----------------------------------------------------
+The installer is new and unsigned (no paid code-signing
+certificate). Heuristic engines judge unknown unsigned executables
+by behavior; this fades as vendors whitelist the file after
 developer submissions.
 
 What SignalScout does (nothing hidden)
@@ -18,28 +26,26 @@ What SignalScout does (nothing hidden)
 It searches publicly published business information (name, phone,
 email, address, website) for wireless-retail prospecting, using the
 official Google Places API (with YOUR OWN key) and ordinary public
-web pages. It sends no credentials anywhere — by design it carries
+web pages. It sends no credentials anywhere - by design it carries
 none. Full source code: https://github.com/abaduchanna/SignalScout
-Built and published by 3SVerse — www.3sverse.com.
+Built and published by 3SVerse - www.3sverse.com.
 
-How to run it anyway (Windows)
-------------------------------
+If you still see an alert
+-------------------------
 1. SmartScreen popup ("Windows protected your PC"):
    click "More info" -> "Run anyway".
 
-2. Windows Defender blocked the file:
-   Windows Security -> Protection history -> find the SignalScout
-   entry -> Actions -> "Allow on device".
+2. Company endpoint security (SentinelOne etc.):
+   the quarantine may need your IT admin - send them the installer
+   path and this note, or restore the file from the console.
 
-3. Permanent (recommended if you use it daily):
-   Windows Security -> Virus & threat protection -> Manage settings
-   -> Exclusions -> Add an exclusion -> Folder -> select the
-   SignalScout folder you unzipped.
+3. Windows Defender: Protection history -> SignalScout entry ->
+   Actions -> "Allow on device".
 
 Verify it yourself
 ------------------
 Upload the file to https://www.virustotal.com and check which engines
-flag it — then compare with any other new, unsigned tool. False
+flag it - then compare with any other new, unsigned tool. False
 positives can also be reported to Microsoft here:
 https://www.microsoft.com/wdsi/filesubmission (choose
 "Software developer" -> "My software is incorrectly detected").

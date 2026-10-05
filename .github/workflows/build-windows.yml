@@ -1,8 +1,16 @@
-name: Build SignalScout (Windows exe)
+name: Build SignalScout (Windows Setup)
 
-# Studio-branded GUI build. The exe bundles the brand art (ring, orb,
-# header logo, icon) and the English-only UI. No secrets are embedded -
-# the tool carries no credentials by design.
+# Studio-branded GUI build shipped as ONE file: SignalScout-Setup.exe.
+# The exe bundles the brand art (ring, orb, header logo, icon) and the
+# English-only UI. No secrets are embedded - the tool carries no
+# credentials by design.
+#
+# AV strategy (SentinelOne et al.): NO --onefile. Nuitka's onefile
+# bootstrap extracts a compiled program DLL (run_gui.dll) into
+# %TEMP%\onefile_*\ on EVERY launch, which endpoint security treats as
+# a malicious file drop. The standalone (onedir) build is installed
+# once into a fixed folder by a NSIS setup - no self-extract, no Temp
+# payload. The CLI exe + portable zips were retired in v0.3.5.
 # Developed by www.3SVerse.com (c) 2026
 
 on:
@@ -10,14 +18,14 @@ on:
     branches: [main]
     tags: ["v*"]
     paths:
-      ["lead_scout/**", "assets/**", "run_gui.py", ".github/workflows/build-windows.yml", "**"]
+      ["lead_scout/**", "assets/**", "packaging/**", "run_gui.py", ".github/workflows/build-windows.yml", "**"]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  windows-exe:
+  windows-setup:
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -38,37 +46,7 @@ jobs:
       - name: Install build deps
         run: python -m pip install nuitka pillow mechanicalsoup beautifulsoup4 requests websocket-client openpyxl zstandard
 
-      - name: Build ONEFILE exe (Nuitka)
-        shell: pwsh
-        run: |
-          python -m nuitka --standalone --onefile `
-            --output-file=SignalScout.exe `
-            --enable-plugin=tk-inter `
-            --windows-console-mode=disable `
-            --force-stdout-spec="%TEMP%\SignalScout-stdout.log" `
-            --force-stderr-spec="%TEMP%\SignalScout-stderr.log" `
-            --windows-icon-from-ico=assets/3sverse_icon.ico `
-            --windows-company-name=3SVerse `
-            --windows-product-name=SignalScout `
-            --windows-file-description="SignalScout - Wireless Retail Lead Scout (www.3sverse.com)" `
-            --windows-product-version=$env:VERSION.0 `
-            --windows-file-version=$env:VERSION.0 `
-            --include-data-files=assets/bg_ring.png=bg_ring.png `
-            --include-data-files=assets/bg_orb.png=bg_orb.png `
-            --include-data-files=assets/3sverse_logo_header.png=3sverse_logo_header.png `
-            --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
-            --include-package=lead_scout `
-            --include-module=native_chrome `
-            --include-package=openpyxl `
-            --nofollow-import-to=curl_cffi `
-            --assume-yes-for-downloads `
-            run_gui.py
-          if (!(Test-Path SignalScout.exe)) { throw "exe missing" }
-
-      # AV-safe variant: standalone (onedir) + zip. Nuitka --onefile self-extract
-      # bootstrap is the #1 antivirus false-positive heuristic on unsigned exes;
-      # a plain onedir folder has no self-extract step and is far less flaggy.
-      - name: Build standalone (onedir) zip — AV-safe variant
+      - name: Build standalone (onedir, Nuitka)
         shell: pwsh
         run: |
           python -m nuitka --standalone `
@@ -97,20 +75,34 @@ jobs:
           $dist = "onedir_build/run_gui.dist"
           if (!(Test-Path "$dist/SignalScout.exe")) { throw "onedir exe missing" }
           Copy-Item assets/AV-FALSE-POSITIVE-NOTE.txt "$dist/"
-          Rename-Item $dist -NewName "SignalScout"
-          Compress-Archive -Path onedir_build/SignalScout -DestinationPath "SignalScout-$env:VERSION-win64.zip"
-          if (!(Test-Path "SignalScout-$env:VERSION-win64.zip")) { throw "zip missing" }
+
+      - name: Stage installer payload
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path packaging/dist | Out-Null
+          Copy-Item onedir_build/run_gui.dist packaging/dist/SignalScout -Recurse -Force
+          if (!(Test-Path "packaging/dist/SignalScout/SignalScout.exe")) { throw "staged payload missing" }
+
+      - name: Build SignalScout-Setup.exe (NSIS)
+        shell: pwsh
+        run: |
+          $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe"
+          if (!(Test-Path $nsis)) { choco install nsis -y --no-progress; $nsis = "${env:ProgramFiles(x86)}\NSIS\makensis.exe" }
+          if (!(Test-Path $nsis)) { throw "makensis not found" }
+          Set-Location packaging
+          & $nsis -V3 signal_scout.nsi
+          if (!(Test-Path "SignalScout-Setup.exe")) { throw "setup exe missing" }
+          Move-Item SignalScout-Setup.exe ..\SignalScout-Setup.exe -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: SignalScout-windows-x64
-          path: |
-            SignalScout.exe
-            SignalScout-*-win64.zip
+          path: SignalScout-Setup.exe
+          if-no-files-found: error
 
   release:
-    needs: windows-exe
+    needs: windows-setup
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -121,9 +113,8 @@ jobs:
         with:
           name: SignalScout-windows-x64
           path: dist
-      - name: Attach exe + AV-safe zip to release
+      - name: Attach single Setup exe to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/SignalScout.exe
-            dist/SignalScout-*-win64.zip
+            dist/SignalScout-Setup.exe
