@@ -6,8 +6,8 @@
 ;   security products (SentinelOne et al.) reliably treat a freshly
 ;   dropped unsigned DLL in Temp as malicious and quarantine it.
 ;   A NSIS setup installs the standalone build ONCE into a fixed
-;   folder — no self-extract step, no Temp payload, nothing to flag.
-; Developed by www.3SVerse.com (c) 2026 — MIT licensed.
+;   folder - no self-extract step, no Temp payload, nothing to flag.
+; Developed by www.3SVerse.com (c) 2026 - MIT licensed.
 
 Unicode true
 ManifestDPIAware true
@@ -20,7 +20,7 @@ ManifestDPIAware true
 !define UNINSTKEY    "SignalScout"
 
 Name            "${APPNAME}"
-BrandingText    "3SVerse — www.3sverse.com"
+BrandingText    "3SVerse - www.3sverse.com"
 OutFile         "SignalScout-Setup.exe"
 InstallDir      "$LOCALAPPDATA\Programs\SignalScout"
 InstallDirRegKey HKCU "Software\${COMPANY}\${APPNAME}" "InstallDir"
@@ -43,7 +43,7 @@ VIAddVersionKey /LANG=1033 "OriginalFilename" "SignalScout-Setup.exe"
 
 Page directory
 Page instfiles
-UninstPage confirm
+UninstPage uninstConfirm
 UninstPage instfiles
 
 Section "Install"
