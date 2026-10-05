@@ -1,0 +1,45 @@
+Windows showed a virus/threat warning for SignalScout?
+=======================================================
+
+This is a FALSE POSITIVE — SignalScout contains no malware.
+
+Why antivirus flags it
+----------------------
+SignalScout is a brand-new desktop app distributed without a paid
+code-signing certificate. Antivirus engines judge unknown, unsigned
+executables by heuristics, and single-file builds that self-extract at
+launch look suspicious to them. The result: a false "threat detected"
+warning on a clean file. This is common for all new independent
+software, and it fades as antivirus vendors whitelist the file after
+developer submissions.
+
+What SignalScout does (nothing hidden)
+--------------------------------------
+It searches publicly published business information (name, phone,
+email, address, website) for wireless-retail prospecting, using the
+official Google Places API (with YOUR OWN key) and ordinary public
+web pages. It sends no credentials anywhere — by design it carries
+none. Full source code: https://github.com/abaduchanna/SignalScout
+Built and published by 3SVerse — www.3sverse.com.
+
+How to run it anyway (Windows)
+------------------------------
+1. SmartScreen popup ("Windows protected your PC"):
+   click "More info" -> "Run anyway".
+
+2. Windows Defender blocked the file:
+   Windows Security -> Protection history -> find the SignalScout
+   entry -> Actions -> "Allow on device".
+
+3. Permanent (recommended if you use it daily):
+   Windows Security -> Virus & threat protection -> Manage settings
+   -> Exclusions -> Add an exclusion -> Folder -> select the
+   SignalScout folder you unzipped.
+
+Verify it yourself
+------------------
+Upload the file to https://www.virustotal.com and check which engines
+flag it — then compare with any other new, unsigned tool. False
+positives can also be reported to Microsoft here:
+https://www.microsoft.com/wdsi/filesubmission (choose
+"Software developer" -> "My software is incorrectly detected").
