@@ -36,7 +36,7 @@ jobs:
           echo "building SignalScout $v"
 
       - name: Install build deps
-        run: python -m pip install nuitka pillow mechanicalsoup beautifulsoup4 requests websocket-client curl-cffi openpyxl zstandard
+        run: python -m pip install nuitka pillow mechanicalsoup beautifulsoup4 requests websocket-client openpyxl zstandard
 
       - name: Build ONEFILE exe (Nuitka)
         shell: pwsh
@@ -59,8 +59,8 @@ jobs:
             --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
             --include-package=lead_scout `
             --include-module=native_chrome `
-            --include-package=curl_cffi `
             --include-package=openpyxl `
+            --nofollow-import-to=curl_cffi `
             --assume-yes-for-downloads `
             run_gui.py
           if (!(Test-Path SignalScout.exe)) { throw "exe missing" }
@@ -90,8 +90,8 @@ jobs:
             --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
             --include-package=lead_scout `
             --include-module=native_chrome `
-            --include-package=curl_cffi `
             --include-package=openpyxl `
+            --nofollow-import-to=curl_cffi `
             --assume-yes-for-downloads `
             run_gui.py
           $dist = "onedir_build/run_gui.dist"

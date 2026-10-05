@@ -72,7 +72,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
@@ -717,8 +717,9 @@ class ScoutApp:
         orow.grid(row=2, column=0, sticky="w", pady=3)
         self.scr_impersonate = tk.BooleanVar(value=False)
         tk.Checkbutton(orow, text="Browser-fingerprint mode (curl_cffi "
-                                  "Chrome TLS) for sites that 403 plain "
-                                  "clients", variable=self.scr_impersonate,
+                                  "Chrome TLS - auto-falls-back to plain "
+                                  "mode when the lib is absent)",
+                       variable=self.scr_impersonate,
                        bg=PANEL, fg=TEXT, activebackground=PANEL,
                        activeforeground=TEXT, selectcolor=FIELD,
                        font=(FONT, 9), relief="flat", bd=0,
