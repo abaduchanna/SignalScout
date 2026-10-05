@@ -65,11 +65,49 @@ jobs:
             run_gui.py
           if (!(Test-Path SignalScout.exe)) { throw "exe missing" }
 
+      # AV-safe variant: standalone (onedir) + zip. Nuitka --onefile self-extract
+      # bootstrap is the #1 antivirus false-positive heuristic on unsigned exes;
+      # a plain onedir folder has no self-extract step and is far less flaggy.
+      - name: Build standalone (onedir) zip — AV-safe variant
+        shell: pwsh
+        run: |
+          python -m nuitka --standalone `
+            --output-dir=onedir_build `
+            --output-filename=SignalScout.exe `
+            --enable-plugin=tk-inter `
+            --windows-console-mode=disable `
+            --force-stdout-spec="%TEMP%\SignalScout-stdout.log" `
+            --force-stderr-spec="%TEMP%\SignalScout-stderr.log" `
+            --windows-icon-from-ico=assets/3sverse_icon.ico `
+            --windows-company-name=3SVerse `
+            --windows-product-name=SignalScout `
+            --windows-file-description="SignalScout - Wireless Retail Lead Scout (www.3sverse.com)" `
+            --windows-product-version=$env:VERSION.0 `
+            --windows-file-version=$env:VERSION.0 `
+            --include-data-files=assets/bg_ring.png=bg_ring.png `
+            --include-data-files=assets/bg_orb.png=bg_orb.png `
+            --include-data-files=assets/3sverse_logo_header.png=3sverse_logo_header.png `
+            --include-data-files=assets/3sverse_icon.ico=3sverse_icon.ico `
+            --include-package=lead_scout `
+            --include-module=native_chrome `
+            --include-package=curl_cffi `
+            --include-package=openpyxl `
+            --assume-yes-for-downloads `
+            run_gui.py
+          $dist = "onedir_build/run_gui.dist"
+          if (!(Test-Path "$dist/SignalScout.exe")) { throw "onedir exe missing" }
+          Copy-Item assets/AV-FALSE-POSITIVE-NOTE.txt "$dist/"
+          Rename-Item $dist -NewName "SignalScout"
+          Compress-Archive -Path onedir_build/SignalScout -DestinationPath "SignalScout-$env:VERSION-win64.zip"
+          if (!(Test-Path "SignalScout-$env:VERSION-win64.zip")) { throw "zip missing" }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: SignalScout-windows-x64
-          path: SignalScout.exe
+          path: |
+            SignalScout.exe
+            SignalScout-*-win64.zip
 
   release:
     needs: windows-exe
@@ -83,7 +121,9 @@ jobs:
         with:
           name: SignalScout-windows-x64
           path: dist
-      - name: Attach exe to release
+      - name: Attach exe + AV-safe zip to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/SignalScout.exe
+          files: |
+            dist/SignalScout.exe
+            dist/SignalScout-*-win64.zip

@@ -72,7 +72,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
