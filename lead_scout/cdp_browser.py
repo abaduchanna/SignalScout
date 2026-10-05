@@ -43,7 +43,12 @@ CHALLENGE_MARKERS = (
     "authwall", "login required",
 )
 
-DEFAULT_PORT = 9223
+# Ephemeral debug port (0 = OS picks a random free port). A fixed
+# 922x listening socket on every machine is a deterministic
+# automation fingerprint that EDR software flags as suspicious on
+# clean tools. The real port is discovered after launch from
+# DevToolsActivePort inside the profile dir.
+DEFAULT_PORT = 0
 
 WINDOWS_BROWSER_PATHS = (
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -132,6 +137,13 @@ class TrustedBrowser:
                 "No Chrome/Edge found. Set SCOUT_BROWSER_PATH to your "
                 "browser executable.")
         os.makedirs(self.profile_dir, exist_ok=True)
+        # Remove any stale DevToolsActivePort from a previous run so the
+        # ephemeral port discovery below only sees THIS launch's file.
+        try:
+            os.remove(os.path.join(self.profile_dir,
+                                   "DevToolsActivePort"))
+        except OSError:
+            pass
         flags = [
             self.exe,
             f"--remote-debugging-port={self.port}",
@@ -149,12 +161,29 @@ class TrustedBrowser:
             flags, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self._wait_devtools()
 
+    def _devtools_port_file(self) -> int | None:
+        """First line of DevToolsActivePort = the ephemeral debug port."""
+        path = os.path.join(self.profile_dir, "DevToolsActivePort")
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                first = fh.readline().strip()
+        except OSError:
+            return None
+        return int(first) if first.isdigit() else None
+
     def _wait_devtools(self, timeout: float = 30.0) -> None:
         deadline = time.monotonic() + timeout
         last_error: Exception | None = None
         while time.monotonic() < deadline:
+            if self.port == 0:                  # ephemeral: discover it
+                discovered = self._devtools_port_file()
+                if discovered is None:          # browser still booting
+                    time.sleep(0.5)
+                    continue
+                self.port = discovered
             try:
-                info = self._http_json(f"http://127.0.0.1:{self.port}/json/version")
+                info = self._http_json(
+                    f"http://127.0.0.1:{self.port}/json/version")
                 ws_url = info["webSocketDebuggerUrl"]
                 self._ws = websocket.create_connection(
                     ws_url, timeout=30, suppress_origin=True,

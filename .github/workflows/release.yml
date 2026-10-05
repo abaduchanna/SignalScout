@@ -38,8 +38,8 @@ jobs:
             --windows-product-version=$env:VERSION.0 `
             --windows-file-version=$env:VERSION.0 `
             --include-package=lead_scout `
-            --include-package=curl_cffi `
             --include-package=openpyxl `
+            --nofollow-import-to=curl_cffi `
             --assume-yes-for-downloads `
             build_entry.py
           if (!(Test-Path SignalScout-CLI.exe)) { throw "exe missing" }
@@ -59,8 +59,8 @@ jobs:
             --windows-product-version=$env:VERSION.0 `
             --windows-file-version=$env:VERSION.0 `
             --include-package=lead_scout `
-            --include-package=curl_cffi `
             --include-package=openpyxl `
+            --nofollow-import-to=curl_cffi `
             --assume-yes-for-downloads `
             build_entry.py
           $dist = "onedir_build/build_entry.dist"
