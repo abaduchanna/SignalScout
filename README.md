@@ -1,5 +1,7 @@
 # SignalScout — Wireless Retail Lead Scout
 
+
+> **Delivery roadmap (owner, 2026-10-07):** Signal Scout is being built to ship as a **Windows EXE and Android APK** to the same 3SVerse brand standard as the rest of the family — new 3SVerse logo, Segoe UI/Roboto type, brand cyan-magenta accents, centered header, standard footer. Developed by www.3SVerse.com.
 **SignalScout** is a compliance-first lead discovery and website
 enrichment toolkit for wireless-retailer businesses — built for
 targeted prospecting such as **"Total Wireless retailer in Houston,
