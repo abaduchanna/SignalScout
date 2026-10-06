@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wireless-retailer-lead-scout"
-version = "0.3.0"
+version = "0.3.5"
 description = "Compliance-first discovery and enrichment of public wireless-retailer business contacts."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,6 +21,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9", "ruff>=0.8,<1", "pyinstaller>=6.10,<7"]
+
+[project.urls]
+Homepage = "https://www.3sverse.com"
+Repository = "https://github.com/abaduchanna/SignalScout"
+Releases = "https://github.com/abaduchanna/SignalScout/releases/latest"
 
 [project.scripts]
 lead-scout = "lead_scout.cli:main"
