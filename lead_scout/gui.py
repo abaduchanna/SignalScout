@@ -72,7 +72,7 @@ FONT = "Segoe UI"
 MONO = "Consolas"
 HEAD_FONT = FONT
 
-VERSION = "0.3.5"
+VERSION = "0.3.6"
 
 SETTINGS_PATH = os.path.join(os.path.expanduser("~"), ".signalscout",
                              "settings.json")
@@ -270,8 +270,9 @@ class ScoutApp:
         if _PILImage is not None and self._bg_imgs:
             try:
                 src = _PILImage.open(asset_path("bg_ring.png")).convert("RGBA")
+                # Site-standard vibrancy: ring -> effective .9 (owner order).
                 src.putalpha(src.getchannel("A").point(
-                    lambda value: min(255, int(value * 1.55))))
+                    lambda value: min(255, int(value * 4.1))))
                 if max(src.size) > self._RING_MAX:
                     sc = self._RING_MAX / float(max(src.size))
                     src = src.resize((max(1, int(src.width * sc)),
@@ -287,8 +288,9 @@ class ScoutApp:
         if _PILImage is not None and len(self._bg_imgs) > 1:
             try:
                 src = _PILImage.open(asset_path("bg_orb.png")).convert("RGBA")
+                # Site-standard vibrancy: orb -> effective .95 (owner order).
                 src.putalpha(src.getchannel("A").point(
-                    lambda value: min(255, int(value * 1.55))))
+                    lambda value: min(255, int(value * 5.95))))
                 if max(src.size) > self._ORB_MAX:
                     sc = self._ORB_MAX / float(max(src.size))
                     src = src.resize((max(1, int(src.width * sc)),
