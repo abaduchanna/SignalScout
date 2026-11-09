@@ -1,7 +1,7 @@
 # SignalScout — Wireless Retail Lead Scout
 
 
-> **Ships as a Windows EXE and Android APK** to the same 3SVerse brand standard as the rest of the family — 3SVerse logo (clean vector mark on launcher icons + splash), Segoe UI/Roboto type, brand cyan-magenta accents, centered header, standard footer. Windows builds are a single NSIS setup ([latest release](https://github.com/abaduchanna/SignalScout/releases/latest)); Android APK side-load. Developed by www.3SVerse.com.
+> **Ships as a Windows EXE** to the same 3SVerse brand standard as the rest of the family — 3SVerse logo (clean vector mark on launcher icons + splash), Segoe UI/Roboto type, brand cyan-magenta accents, centered header, standard footer. Windows builds are a single NSIS setup ([latest release](https://github.com/abaduchanna/SignalScout/releases/latest)). No Android APK is published in the current release (v0.3.6). Developed by www.3SVerse.com.
 **SignalScout** is a compliance-first lead discovery and website
 enrichment toolkit for wireless-retailer businesses — built for
 targeted prospecting such as **"Total Wireless retailer in Houston,
